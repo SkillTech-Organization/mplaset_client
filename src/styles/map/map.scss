@@ -1,0 +1,105 @@
+agm-map {
+  height: calc(100vh - 21px);
+}
+
+#mapMenuButton {
+  position: absolute;
+  top: 15px;
+  left: 10px;
+
+  z-index: 1000;
+  background: white;
+}
+
+#mapFocusToursButton {
+  position: absolute;
+  top: 15px;
+  left: 60px;
+  z-index: 1000;
+  background: white;
+}
+
+#mapResetTrackingButton {
+  position: absolute;
+  top: 15px;
+  left: 110px;
+  z-index: 1000;
+  background: red;
+}
+
+#mapResetTrackingButtonIcon {
+  color: white;
+}
+
+#tourTrackingGridButton {
+  position: absolute;
+  top: 65px;
+  left: 10px;
+  z-index: 1000;
+  background: white;
+}
+
+#markerGridButton {
+  position: absolute;
+  top: 115px;
+  left: 10px;
+  z-index: 1000;
+  background: white;
+  padding: 0;
+}
+
+#tourTrackingGridContainer {
+  position: absolute;
+  z-index: 1001;
+  background: white;
+  top: 65px;
+  left: 10px;
+  max-width: 550px;
+  opacity: 0.85;
+}
+
+#markerGridContainer {
+  position: absolute;
+  z-index: 1002;
+  background: white;
+  top: 485px;
+  left: 10px;
+  max-width: 650px;
+  opacity: 0.85;
+}
+
+div.trackingGridButtonContainer {
+  padding: 2px;
+}
+
+button.dialog-close {
+  position: relative;
+  float: right;
+}
+
+.tracking-grid {
+  float: left;
+}
+
+.k-grid td {
+  padding: 2px;
+}
+
+.k-grid th {
+  padding: 2px;
+}
+
+.mapButtonDisabled {
+  color: #707070;
+}
+
+.trackingGridMenuButton {
+}
+
+.app-sidenav {
+  width: 275px;
+}
+
+.manual-tp-completion-menu-container {
+  width: 100%;
+}

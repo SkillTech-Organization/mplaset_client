@@ -1,0 +1,474 @@
+<mat-sidenav-container>
+  <mat-sidenav #sidenav mode="side" class="app-sidenav">
+    <h2 mat-subheader> Navigáció </h2>
+    <mat-nav-list>
+      <mat-list-item (click)="navigateTo('/map')">
+        <mat-icon mat-list-icon>map</mat-icon>
+        <h4 mat-line> Térkép </h4>
+        <p mat-line> Túrákövetési adatok </p>
+      </mat-list-item>
+      <mat-list-item *ngIf="authService.getUser().canExportUserTrackingCSV" (click)="openUTCExportVModal(sidenav)">
+        <mat-icon mat-list-icon>map</mat-icon>
+        <h4 mat-line> CSV Export</h4>
+        <p mat-line> Bejelentkezés követési adatok exportja</p>
+      </mat-list-item>
+      <mat-list-item (click)="authService.logoutWithNavigation()">
+        <mat-icon mat-list-icon>exit_to_app</mat-icon>
+        <h4 mat-line> Kijelentkezés </h4>
+        <p mat-line> {{ authService.getUser().name }} ({{authService.autoLogoutRemainingTime | kendoDate: 'mm:ss'}})</p>
+      </mat-list-item>
+      <mat-list>
+      </mat-list>
+    </mat-nav-list>
+  </mat-sidenav>
+
+  <kendo-dialog title="Felhasználó bejelentkezés-követés .csv export" *ngIf="utcExportModalOpened"
+                (close)="closeUTCExportVModal('cancel')"
+                [minWidth]="250" [width]="550">
+    <mat-form-field style="float:left; margin-top: 15px;">
+      <input matInput [matDatepicker]="dp_csvexport_dateFrom" placeholder="Dátumtól" [value]="utcExportDateFrom"
+             (dateChange)="utcExportDateFromChanged($event)">
+      <mat-datepicker-toggle matSuffix [for]="dp_csvexport_dateFrom"></mat-datepicker-toggle>
+      <mat-datepicker #dp_csvexport_dateFrom></mat-datepicker>
+    </mat-form-field>
+    <mat-form-field style="float:left; margin-top: 15px;">
+      <input matInput [matDatepicker]="dp_csvexport_dateTo" placeholder="Dátumig" [value]="utcExportDateTo"
+             (dateChange)="utcExportDateToChanged($event)">
+      <mat-datepicker-toggle matSuffix [for]="dp_csvexport_dateTo"></mat-datepicker-toggle>
+      <mat-datepicker #dp_csvexport_dateTo></mat-datepicker>
+    </mat-form-field>
+    <kendo-dialog-actions>
+      <button mat-button (click)="closeUTCExportVModal('no')" style="width:50%">Mégse</button>
+      <button mat-button (click)="closeUTCExportVModal('yes')" color="primary" style="width:50%">Export</button>
+    </kendo-dialog-actions>
+  </kendo-dialog>
+
+  <div class="app-content">
+    <div>
+      <button mat-icon-button id="mapMenuButton" (click)="sidenav.toggle()" matTooltip="Menü"
+              class="mat-elevation-z3"
+              [matTooltipPosition]="'right'">
+        <mat-icon mat-list-icon>menu</mat-icon>
+      </button>
+      <button mat-icon-button id="tourTrackingGridButton" class="mat-elevation-z3" *ngIf="tourTrackingGridButtonVisible"
+              matTooltip="Túrák"
+              [matTooltipPosition]="'right'"
+              (click)="toggleTourTrackingGrid()">
+        <mat-icon mat-list-icon>swap_calls</mat-icon>
+      </button>
+      <button mat-icon-button id="markerGridButton" class="mat-elevation-z3" *ngIf="markerGridButtonVisible"
+              matTooltip="Markerek"
+              [matTooltipPosition]="'right'"
+              [style.top]="markerGridButtonTop"
+              (click)="toggleMarkerGridVisible()">
+        <mat-icon mat-list-icon>place</mat-icon>
+      </button>
+      <button mat-icon-button class="mat-elevation-z3" id="mapFocusToursButton" matTooltip="Látható túrák"
+              [matTooltipPosition]="'right'"
+              (click)="setBoundsToAllTours()">
+        <mat-icon mat-list-icon>my_location</mat-icon>
+      </button>
+      <button *ngIf="authService.getUser().canUseRestartButton" mat-icon-button class="mat-elevation-z3"
+              id="mapResetTrackingButton"
+              [disabled]="mapResetTrackingButtonDisabled"
+              matTooltip="Követés újraindítása"
+              [matTooltipPosition]="'right'"
+              (click)="resetTracking()">
+        <mat-icon mat-list-icon id="mapResetTrackingButtonIcon">replay</mat-icon>
+      </button>
+
+      <div id="tourTrackingGridContainer" [@flyInOut]="'in'" *ngIf="tourTrackingGridVisible">
+        <div class="trackingGridButtonContainer">
+          <div>
+            <button mat-button (click)="toggleVisibilityOfAllTours()" style="float: left; min-width: 40px;">
+              <i [ngClass]="{
+              'fa': true,
+               'fa-check-square-o': this.visibilityOfAllTours,
+                'fa-square-o': !this.visibilityOfAllTours,
+                 'fa-lg': true}"></i>
+            </button>
+            <button mat-button (click)="tourTrackingGridRemoveFilter()" color="primary" class="trackingGridMenuButton">
+              Szűrés törlése
+            </button>
+            <button mat-button (click)="toggleTourTrackingParameterContainer()" color="primary"
+                    class="trackingGridMenuButton">Paraméterek
+            </button>
+            <button mat-button type="button" style="float:right;" class="k-button dialog-close"
+                    (click)="closeTourTrackingGrid()">&times;
+            </button>
+          </div>
+          <div class="tourTrackingParameterContainer" *ngIf="tourTrackingParameterContainerVisible">
+            <mat-form-field style="float:left; margin-top: 15px;">
+              <input matInput [matDatepicker]="dp" placeholder="Dátumszűrés" [value]="tourDateFilter"
+                     (dateChange)="tourTrackingDateFilterChanged($event)">
+              <mat-datepicker-toggle matSuffix [for]="dp"></mat-datepicker-toggle>
+              <mat-datepicker #dp></mat-datepicker>
+            </mat-form-field>
+          </div>
+        </div>
+        <div>
+          <kendo-grid class="tracking-grid"
+                      [data]="tourTrackingGridData" [height]="325"
+                      [pageable]="false"
+                      [sortable]="true"
+                      [sort]="tourTrackingGridState.sort"
+                      filterable="menu"
+                      [filter]="tourTrackingGridState.filter"
+                      [selectable]="true"
+                      [rowSelected]="isTourTrackingGridRowSelected"
+                      (selectionChange)="tourTrackingGridSelectionChange($event)"
+                      (dataStateChange)="tourTrackingGridDataStateChange($event)">
+            <kendo-grid-column field="visible" title=" " width="15" filter="boolean">
+              <ng-template kendoGridCellTemplate let-dataItem>
+                <input type="checkbox" [checked]="dataItem.visible"
+                       (click)="toggleTourVisibility($event, dataItem)"/>
+              </ng-template>
+            </kendo-grid-column>
+            <kendo-grid-column field="tourColor" title="" width="8" [filterable]="false">
+              <ng-template kendoGridCellTemplate let-dataItem>
+                <div style="width: 20px; height: 20px" [style.background]="dataItem.tourColor"></div>
+              </ng-template>
+            </kendo-grid-column>
+            <kendo-grid-column field="truckRegNo" title="Rendszám" width="40">
+            </kendo-grid-column>
+            <kendo-grid-column field="tourStart" title="Raktárból kilépés" width="50" filter="date">
+              <ng-template kendoGridCellTemplate let-dataItem>
+                {{ dataItem.tourStart | kendoDate:'HH:mm' }}
+              </ng-template>
+            </kendo-grid-column>
+            <kendo-grid-column field="tourEnd" title="Terv. Befejezés" width="50" filter="date">
+              <ng-template kendoGridCellTemplate let-dataItem>
+                {{ dataItem.tourEnd | kendoDate:'HH:mm' }}
+              </ng-template>
+            </kendo-grid-column>
+            <kendo-grid-column field="tourEnd" title="Össz. km" width="40" filter="date">
+              <ng-template kendoGridCellTemplate let-dataItem>
+                {{ dataItem.tourLength }} km
+              </ng-template>
+            </kendo-grid-column>
+          </kendo-grid>
+        </div>
+      </div>
+
+      <div id="markerGridContainer" [@flyInOut]="'in'" *ngIf="markerGridVisible"
+           [style.top]="markerGridContainerTop">
+        <mat-tab-group class="marker-grid-tab-group">
+          <mat-tab label="Túrapontok">
+            <div class="tour-point-tab-content">
+              <div class="trackingGridButtonContainer">
+                <button mat-button *ngIf="tourTrackingGridSelection.length > 0"
+                        (click)="toggleVisibilityOfAllTourPoints(selectedTourID)">
+                  <i [ngClass]="{
+                   'fa': true,
+                   'fa-check-square-o': this.visibilityOfAllTourPoints,
+                   'fa-square-o': !this.visibilityOfAllTourPoints,
+                   'fa-lg': true}"></i>
+                </button>
+                <button mat-button (click)="tourPointTrackingGridRemoveFilter()" color="primary"
+                        class="trackingGridMenuButton">Szűrés törlése
+                </button>
+                <button mat-button type="button" class="k-button dialog-close" (click)="closeMarkerGrid()">&times;
+                </button>
+              </div>
+              <div *ngIf="tourTrackingGridSelection.length === 0"
+                   style="width:650px;">
+                <span>Nincs kiválasztott túra.</span>
+              </div>
+              <kendo-grid *ngIf="tourTrackingGridSelection.length > 0"
+                          class="tracking-grid"
+                          [data]="tourPointTrackingGridData" [height]="300"
+                          [sortable]="true"
+                          [sort]="tourTrackingGridState.sort"
+                          [pageable]="false"
+                          [selectable]="true"
+                          filterable="menu"
+                          [filter]="tourTrackingGridState.filter"
+                          [rowClass]="tourPointGridRowCallback"
+                          [rowSelected]="isTourPointTrackingGridRowSelected"
+                          (selectionChange)="tourPointTrackingGridSelectionChange($event)"
+                          (dataStateChange)="tourTrackingGridDataStateChange($event)">
+                <kendo-grid-column field="visible" title=" " width="15">
+                  <ng-template kendoGridCellTemplate let-dataItem>
+                    <input type="checkbox" [checked]="dataItem.visible" filter="boolean"
+                           (click)="toggleTourPointVisibility($event, dataItem)"/>
+                  </ng-template>
+                </kendo-grid-column>
+                <kendo-grid-column field="isCompleted" title=" " width="8">
+                  <ng-template kendoGridCellTemplate let-dataItem>
+                    <i *ngIf="dataItem.isComplete" class="fa fa-building"></i>
+                    <i *ngIf="!dataItem.isComplete" class="fa fa-building-o"></i>
+                  </ng-template>
+                </kendo-grid-column>
+                <kendo-grid-column field="tourPointName" title="Megnevezés" width="80">
+                </kendo-grid-column>
+                <kendo-grid-column field="arriveTime" title="Tervezett érkezés" width="50" filter="date">
+                  <ng-template kendoGridCellTemplate let-dataItem>
+                    {{ dataItem.arriveTime | kendoDate:'HH:mm' }}
+                  </ng-template>
+                </kendo-grid-column>
+                <kendo-grid-column field="serviceTime" title="Tervezett kiszolgálás kezdete" width="50" filter="date">
+                  <ng-template kendoGridCellTemplate let-dataItem>
+                    {{ dataItem.serviceTime | kendoDate:'HH:mm' }}
+                  </ng-template>
+                </kendo-grid-column>
+                <kendo-grid-column field="departureTime" title="Tervezett távozás" width="50" filter="date">
+                  <ng-template kendoGridCellTemplate let-dataItem>
+                    {{ dataItem.departureTime | kendoDate:'HH:mm' }}
+                  </ng-template>
+                </kendo-grid-column>
+              </kendo-grid>
+            </div>
+          </mat-tab>
+          <mat-tab label="Járművek">
+            <div class="vehicles-tab-content">
+              <div class="trackingGridButtonContainer">
+                <button mat-button (click)="toggleVisibilityOfAllVehicles()">
+                  <i [ngClass]="{
+                   'fa': true,
+                   'fa-check-square-o': this.visibilityOfAllVehicles,
+                   'fa-square-o': !this.visibilityOfAllVehicles,
+                   'fa-lg': true}"></i>
+                </button>
+                <button mat-button type="button" class="k-button dialog-close" (click)="closeMarkerGrid()">&times;
+                </button>
+              </div>
+              <kendo-grid
+                class="tracking-grid"
+                [data]="vehicleTrackingGridData" [height]="300"
+                [pageable]="false"
+                [selectable]="true"
+                [rowSelected]="isVehicleTrackingGridRowSelected"
+                [rowClass]="vehicleTrackingGridRowCallback"
+                (selectionChange)="vehicleTrackingGridSelectionChange($event)"
+                (dataStateChange)="vehicleTrackingGridDataStateChange($event)">
+                <kendo-grid-column field="visible" title="" width="15">
+                  <ng-template kendoGridCellTemplate let-dataItem>
+                    <input type="checkbox" [checked]="dataItem.visible"
+                           (click)="toggleVehicleVisibility($event, dataItem)"/>
+                  </ng-template>
+                </kendo-grid-column>
+                <kendo-grid-column field="device" title="Rendszám" width="50">
+                </kendo-grid-column>
+                <kendo-grid-column field="arriveTime" title="Idő" width="50">
+                  <ng-template kendoGridCellTemplate let-dataItem>
+                    {{ dataItem.time | kendoDate:'HH:mm' }}
+                  </ng-template>
+                </kendo-grid-column>
+                <kendo-grid-column field="ignition" title="Gyújtás" width="20">
+                  <ng-template kendoGridCellTemplate let-dataItem>
+                    {{ dataItem.ignition === "ON" ? "Be" : "Ki"}}
+                  </ng-template>
+                </kendo-grid-column>
+                <kendo-grid-column field="speed" title="Sebesség" width="50">
+                  <ng-template kendoGridCellTemplate let-dataItem>
+                    {{ dataItem.speed }} km/h
+                  </ng-template>
+                </kendo-grid-column>
+                <kendo-grid-column field="odometer" title="Odometer" width="50">
+                  <ng-template kendoGridCellTemplate let-dataItem>
+                    {{ dataItem.odometer }}
+                  </ng-template>
+                </kendo-grid-column>
+              </kendo-grid>
+            </div>
+          </mat-tab>
+        </mat-tab-group>
+      </div>
+
+      <agm-map [latitude]="dispMapCenterLat" [longitude]="dispMapCenterLng"
+               [fitBounds]="mapLatLngBounds"
+               [usePanning]="mapUsePanning"
+               (boundsChange)="mapBoundsChanged">
+        <ng-container *ngFor="let pl of dispTourPolylines; let iT = index">
+          <agm-polyline *ngIf="pl.visible"
+                        [strokeColor]="pl.lineColor"
+                        [strokeWeight]="pl.lineWidth"
+                        [strokeOpacity]="pl.lineOpacity"
+                        [zIndex]="pl.zIndex"
+                        (lineClick)="polyLineMouseClickHandler($event, iT)">
+            <agm-polyline-point *ngFor="let plp of pl.polyLinePoints; let iplp = index"
+                                [latitude]="plp.Lat"
+                                [longitude]="plp.Lng">
+            </agm-polyline-point>
+            <agm-info-window *ngIf="pl.infoWindow.toShow" [latitude]="pl.infoWindow.latitude"
+                             [longitude]="pl.infoWindow.longitude"
+                             [isOpen]="pl.infoWindow.isOpen">
+              <table>
+                <tr>
+                  <td>Rendszám:</td>
+                  <td>{{ pl.truckRegNo }}</td>
+                </tr>
+                <tr>
+                  <td>Raktárból kilépés:</td>
+                  <td>{{ pl.startTime | kendoDate: 'HH:mm' }}</td>
+                </tr>
+                <tr>
+                  <td>Raktárba viszaérkezés:</td>
+                  <td>{{ pl.endTime | kendoDate: 'HH:mm' }}</td>
+                </tr>
+                <tr>
+                  <td>Össz. km:</td>
+                  <td>{{ pl.tourLength }} km</td>
+                </tr>
+              </table>
+            </agm-info-window>
+          </agm-polyline>
+        </ng-container>
+        <agm-marker-cluster [averageCenter]="false" [minimumClusterSize]="10" [zoomOnClick]="true"
+                            [imagePath]="'https://raw.githubusercontent.com/googlemaps/v3-utility-library/master/markerclustererplus/images/m'">
+          <!-- ============================ tour point markers ============================ -->
+          <ng-container *ngFor="let tpsm of dispTourPoints">
+            <agm-marker *ngIf="tpsm.visible && tpsm.isEverVisible && tpsm.order > 0"
+                        [latitude]="tpsm.startPoint.Lat"
+                        [longitude]="tpsm.startPoint.Lng"
+                        [openInfoWindow]="true"
+                        [title]="tpsm.title"
+                        [iconUrl]="tpsm.iconUrl"
+                        [zIndex]="tpsm.zIndex"
+                        (markerClick)="tourPointMarkerClickHandler($event, tpsm)">
+              <agm-info-window [isOpen]="tpsm.infoWindowVisible">
+                <table [style.background-color]="
+                      tpsm.isCompleted ? '#eeffee' :
+                      (tpsm.isUncertain ? '#faffa4' :
+                      (tpsm.isDelayed ? '#ffeeee' :
+                      (tpsm.isUnderCompletion ? '#ddddff' : '#ffffff')))">
+                  <tr>
+                    <td>Jármű rendszám:</td>
+                    <td>{{ tpsm.truckRegNo }}</td>
+                  </tr>
+                  <tr>
+                    <td>Túrapont neve:</td>
+                    <td>{{ tpsm.name }}</td>
+                  </tr>
+                  <tr>
+                    <td>Tervezett érkezés:</td>
+                    <td>{{ tpsm.arriveTime | kendoDate: 'HH:mm' }}</td>
+                  </tr>
+                  <tr>
+                    <td>Tervezett kiszolgálás kezdete:</td>
+                    <td>{{ tpsm.serviceTime | kendoDate: 'HH:mm' }}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>Tervezett távozás:</td>
+                    <td>{{ tpsm.departureTime | kendoDate: 'HH:mm' }}</td>
+                  </tr>
+                  <tr *ngIf="tpsm.isCompleted">
+                    <td><b>Valós érkezés:</b></td>
+                    <td><b>{{ tpsm.realArriveTime | kendoDate: 'HH:mm' }}</b></td>
+                  </tr>
+                  <tr *ngIf="tpsm.isCompleted">
+                    <td><b>Valós kiszolgálás kezdete:</b></td>
+                    <td><b>{{ tpsm.realServiceTime | kendoDate: 'HH:mm' }}</b></td>
+                  </tr>
+                  <tr *ngIf="tpsm.isCompleted">
+                    <td><b>Valós távozás:</b></td>
+                    <td><b>{{ tpsm.realDepartureTime | kendoDate: 'HH:mm' }}</b></td>
+                  </tr>
+                  <tr
+                    *ngIf="!tpsm.isCompleted && tpsm.predictedArriveTime ? tpsm.predictedArriveTime.indexOf('0001') < 0 : false">
+                    <td *ngIf="tpsm.isUncertain">Számított érkezés:</td>
+                    <td *ngIf="tpsm.isUnderCompletion">Érkezés:</td>
+                    <td *ngIf="!tpsm.isUncertain && !tpsm.isUnderCompletion">Becsült érkezés:</td>
+                    <td>{{ tpsm.predictedArriveTime | kendoDate: 'HH:mm' }}</td>
+                  </tr>
+                  <tr
+                    *ngIf="!tpsm.isCompleted && tpsm.predictedServiceTime ? tpsm.predictedServiceTime.indexOf('0001') < 0 : false">
+                    <td *ngIf="tpsm.isUnderCompletion">Kiszolgálás kezdete:</td>
+                    <td *ngIf="!tpsm.isUnderCompletion && !tpsm.isUncertain">Becsült kiszolgálás kezdete:</td>
+                    <td *ngIf="!tpsm.isUnderCompletion && tpsm.isUncertain">Számított kiszolgálás kezdete:</td>
+                    <td>{{ tpsm.predictedServiceTime | kendoDate: 'HH:mm' }}</td>
+                  </tr>
+                  <tr
+                    *ngIf="!tpsm.isCompleted">
+                    <td
+                      *ngIf="tpsm.isUncertain && tpsm.predictedDepartureTime ? tpsm.predictedDepartureTime.indexOf('0001') < 0 : false">
+                      Számított távozás:
+                    </td>
+                    <td
+                      *ngIf="!tpsm.isUnderCompletion && !tpsm.isUncertain && tpsm.predictedDepartureTime ? tpsm.predictedDepartureTime.indexOf('0001') < 0 : false">
+                      Becsült távozás:
+                    </td>
+                    <td *ngIf="tpsm.isUnderCompletion && !tpsm.isUncertain">Várható távozás:</td>
+                    <td
+                      *ngIf="(tpsm.isUncertain || !tpsm.isUnderCompletion) && tpsm.predictedDepartureTime ? tpsm.predictedDepartureTime.indexOf('0001') < 0 : false">
+                      {{ tpsm.predictedDepartureTime | kendoDate: 'HH:mm' }}
+                    </td>
+                    <td *ngIf="tpsm.isUnderCompletion"> {{ tpsm.realDepartureTime | kendoDate: 'HH:mm' }}</td>
+                  </tr>
+                  <tr *ngIf="!tpsm.isCompleted && tpsm.isDelayed && tpsm.delay.indexOf('0001') > 0">
+                    <td>Késés mértéke:</td>
+                    <td>{{ tpsm.delay | kendoDate: 'HH:mm' }}</td>
+                  </tr>
+                </table>
+                <div *ngIf="this.authService._user.isAuthenticated && authService.getUser().canSetManualTPCompletion"
+                     class="manual-tp-completion-menu-container">
+                  <mat-form-field style="float:left;">
+                    <input matInput [matDatepicker]="dp_manualCompletion" placeholder="Teljesítés ideje"
+                           [value]="manualCompletionDate"
+                           (dateChange)="setManualCompletionDate($event)">
+                    <mat-datepicker-toggle matSuffix [for]="dp_manualCompletion"></mat-datepicker-toggle>
+                    <mat-datepicker #dp_manualCompletion></mat-datepicker>
+                  </mat-form-field>
+                  <kendo-timepicker style="margin-top: 3px;"
+                    [value]="manualCompletionDate"
+                    [format]="'HH:mm'"
+                    (valueChange)="setManualCompletionTime($event)">
+                  </kendo-timepicker>
+                  <button
+                    mat-raised-button (click)="submitManualTPCompletion(tpsm)" matTooltip="Rögzít"
+                    class="mat-elevation-z3"
+                    [matTooltipPosition]="'right'">
+                    <mat-icon mat-list-icon>done</mat-icon>
+                  </button>
+                </div>
+              </agm-info-window>
+            </agm-marker>
+          </ng-container>
+        </agm-marker-cluster>
+        <!-- ============================ vehicle tracking markers ============================ -->
+        <ng-container *ngFor="let v of vehicleList">
+          <agm-marker *ngIf="v.visible"
+                      [latitude]="v.latitude"
+                      [longitude]="v.longitude"
+                      [openInfoWindow]="true"
+                      [title]="v.title"
+                      [iconUrl]="v.iconUrl"
+                      [zIndex]="v.zIndex"
+                      (markerClick)="vehicleMarkerClickHandler($event, v)">
+            <agm-info-window [isOpen]="v.infoWindowVisible">
+              <table [style.background-color]="v.isDelayed ? '#ffeeee' : '#ffffff'">
+                <tr>
+                  <td>Rendszám:</td>
+                  <td>{{ v.device }}</td>
+                </tr>
+                <tr>
+                  <td>Raktárból kilépés:</td>
+                  <td>{{ v.tourStart | kendoDate: 'HH:mm' }}</td>
+                </tr>
+                <tr *ngIf="v.previousTPCompletion ? v.previousTPCompletion.indexOf('0001') < 0 : false">
+                  <td>Előző túrapontról elindulás:</td>
+                  <td>{{ v.previousTPCompletion | kendoDate: 'HH:mm' }}</td>
+                </tr>
+                <tr *ngIf="v.predictedNextTPCompletion ? v.predictedNextTPCompletion.indexOf('0001') < 0 : false">
+                  <td>Következő túrapontra várható érkezés:</td>
+                  <td>{{ v.predictedNextTPCompletion | kendoDate: 'HH:mm' }}</td>
+                </tr>
+                <tr>
+                  <td>Gyújtás:</td>
+                  <td>{{ v.ignition === "OFF" ? "KI" : "BE" }}</td>
+                </tr>
+                <tr>
+                  <td>Sebesség:</td>
+                  <td>{{ v.speed }} km/h</td>
+                </tr>
+              </table>
+            </agm-info-window>
+          </agm-marker>
+        </ng-container>
+      </agm-map>
+    </div>
+
+  </div>
+</mat-sidenav-container>
+<toaster-container [toasterconfig]="toasterconfig"></toaster-container>

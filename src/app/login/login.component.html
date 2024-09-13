@@ -1,0 +1,30 @@
+<div class="outer">
+  <div class="middle">
+    <div class="inner">
+      <div class="login-form-container max-content-width">
+        <form (ngSubmit)="login()">
+          <div class="form-group row max-content-width">
+            <mat-form-field>
+              <input matInput placeholder="Felhasználónév" name="username" [(ngModel)]="formUser.username">
+            </mat-form-field>
+          </div>
+          <div class="form-group row max-content-width">
+            <mat-form-field>
+              <input matInput placeholder="Jelszó" [type]="hidePassword ? 'password' : 'text'" name="password"
+              [(ngModel)]="formUser.password">
+              <mat-icon matSuffix (click)="hidePassword = !hidePassword">
+                {{hidePassword ? 'visibility' : 'visibility_off'}}
+              </mat-icon>
+            </mat-form-field>
+          </div>
+          <div class="form-group row max-content-width">
+            <button mat-raised-button type="submit" [disabled]="submitButtonDisabled" name="submit">
+              Bejelentkezés
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<toaster-container [toasterconfig]="toasterconfig"></toaster-container>
